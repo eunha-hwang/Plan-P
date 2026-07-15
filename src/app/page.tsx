@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Calendar, type DayMark } from "@/components/Calendar";
 import { DeleteButton } from "@/components/ui";
 import { IMPORTANCE_LABEL, MODE_LABEL, type Appointment } from "@/lib/types";
@@ -81,7 +81,7 @@ function UpcomingCard({
             )}
           </div>
           <p className="mt-0.5 truncate text-sm text-muted">
-            {a.destination || MODE_LABEL[a.travelMode]} · {formatDateTime(a.appointmentAt)}
+            {a.destination || MODE_LABEL[a.travelMode]} · {formatDateTime(a.targetArriveAt)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -106,14 +106,14 @@ function UpcomingCard({
               {formatClock(a.prepStartAt)} 준비 시작
             </p>
             <p className="mt-0.5 text-xs font-medium text-muted">
-              {formatClock(a.departAt)} 출발 · {formatClock(a.targetArriveAt)} 도착 목표
+              {formatClock(a.departAt)} 출발 · {formatClock(a.targetArriveAt)} 약속
             </p>
           </>
         ) : (
           <p className="text-sm font-semibold text-fg">
             {formatClock(a.departAt)} 출발
             <span className="mx-1.5 text-muted">→</span>
-            {formatClock(a.targetArriveAt)} 도착 목표
+            {formatClock(a.targetArriveAt)} 약속
           </p>
         )}
       </div>
@@ -145,12 +145,24 @@ function timeGreeting(): string {
 }
 
 export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const hydrated = useStore((s) => s.hydrated);
   const onboarded = useStore((s) => s.profile.onboarded);
   const appointments = useStore((s) => s.appointments);
   const removeAppointment = useStore((s) => s.removeAppointment);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // 방금 저장한 약속의 날짜로 바로 이동해서 보여주기 위해 쿼리로 넘어온 날짜를 초기값으로 사용
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    () => searchParams.get("date")
+  );
 
   useEffect(() => {
     if (hydrated && !onboarded) router.replace("/onboarding");

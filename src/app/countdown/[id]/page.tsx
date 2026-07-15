@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Button, DeleteButton, Header } from "@/components/ui";
 import { clsx } from "@/lib/clsx";
-import { formatClock, formatDuration, formatRemain } from "@/lib/time";
+import { dateKey, formatClock, formatDuration, formatRemain } from "@/lib/time";
 import { MODE_LABEL, type Appointment } from "@/lib/types";
 import { useNow } from "@/lib/useNow";
 import { useStore } from "@/store/useStore";
@@ -22,7 +22,8 @@ function phaseOf(
 } {
   const toPrep = appt.prepStartAt - now;
   const toDepart = appt.departAt - now;
-  const toAppt = appt.appointmentAt - now;
+  // 유저에게는 targetArriveAt이 곧 "약속 시각"이다 (실제 약속 시각은 내부 판정에만 사용)
+  const toAppt = appt.targetArriveAt - now;
 
   // 준비 시작 전: 준비 시작까지 카운트다운 (차분). 며칠 남았으면 일단위로
   if (toPrep > 0) {
@@ -148,12 +149,9 @@ function Timetable({ appt, now }: { appt: Appointment; now: number }) {
       />
       <TimelineStop
         time={formatClock(appt.targetArriveAt)}
-        title="도착 목표"
+        title="약속"
         sub={appt.destination || undefined}
       />
-      <p className="mt-3 text-center text-xs text-[#8b95a1]">
-        약속 시각 {formatClock(appt.appointmentAt)}
-      </p>
     </div>
   );
 }
@@ -167,7 +165,7 @@ const NOTIFY_COPY: Record<NotifyPhase, (appt: Appointment) => { title: string; b
   }),
   depart: (appt) => ({
     title: "지금 나가세요 🚨",
-    body: `${appt.title} · ${formatClock(appt.targetArriveAt)} 도착 목표`,
+    body: `${appt.title} · ${formatClock(appt.targetArriveAt)} 약속`,
   }),
   arrive: (appt) => ({
     title: "도착했나요? 📍",
@@ -326,13 +324,16 @@ export default function CountdownPage() {
     );
   }
 
+  // 홈으로 돌아갈 때 방금 확인한 약속의 날짜를 그대로 보여주기 위해 날짜를 실어서 이동
+  const goHome = () => router.replace(`/?date=${dateKey(appt.targetArriveAt)}`);
+
   if (appt.status === "done") {
     return (
       <div className="flex min-h-dvh flex-col">
-        <Header onBack={() => router.replace("/")} />
+        <Header onBack={goHome} />
         <ResultView appt={appt} />
         <footer className="px-5 pb-8 pt-4">
-          <Button onClick={() => router.replace("/")}>홈으로</Button>
+          <Button onClick={goHome}>홈으로</Button>
         </footer>
       </div>
     );
@@ -343,7 +344,7 @@ export default function CountdownPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
-      <Header onBack={() => router.replace("/")} right={<HeaderActions appt={appt} />} />
+      <Header onBack={goHome} right={<HeaderActions appt={appt} />} />
 
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         {/* 신호등 상태 */}
@@ -364,7 +365,10 @@ export default function CountdownPage() {
         </div>
       </main>
 
-      <footer className="px-5 pb-8 pt-4">
+      <footer className="space-y-2 px-5 pb-8 pt-4">
+        <Button variant="secondary" onClick={goHome}>
+          홈으로
+        </Button>
         <Button onClick={() => markArrived(appt.id)}>Safe! 도착했어요</Button>
       </footer>
     </div>

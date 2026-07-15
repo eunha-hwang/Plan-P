@@ -22,7 +22,7 @@ export function DeviceFrame({
       <div
         className={clsx(
           "mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-bg",
-          "md:relative md:block md:h-[min(852px,calc(100dvh-2.5rem))] md:min-h-0 md:w-[394px] md:max-w-none md:overflow-hidden md:rounded-[3.3rem] md:border-[13px] md:border-black md:shadow-[0_30px_70px_rgba(17,24,39,0.35)]"
+          "md:relative md:block md:h-[min(852px,calc(100dvh-2.5rem))] md:min-h-0 md:w-auto md:max-w-none md:aspect-[393/852] md:overflow-hidden md:rounded-[3.3rem] md:border-[13px] md:border-black md:shadow-[0_30px_70px_rgba(17,24,39,0.35)]"
         )}
       >
         {/* 상태바 (데스크톱 프레임에서만) */}

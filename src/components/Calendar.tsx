@@ -58,9 +58,11 @@ export function Calendar({
 }) {
   const today = new Date();
   const todayKey = dateKey(today.getTime());
-  const [cursor, setCursor] = useState(
-    () => new Date(today.getFullYear(), today.getMonth(), 1)
-  );
+  // 처음 열릴 때 선택된 날짜가 있으면(예: 방금 저장한 약속) 그 달로 바로 보여준다
+  const [cursor, setCursor] = useState(() => {
+    const base = selected ? new Date(`${selected}T00:00:00`) : today;
+    return new Date(base.getFullYear(), base.getMonth(), 1);
+  });
   const [picking, setPicking] = useState(false);
   const [pickerYear, setPickerYear] = useState(() => today.getFullYear());
 

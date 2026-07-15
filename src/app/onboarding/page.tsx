@@ -161,7 +161,7 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <Header />
-      <main className="flex-1 px-5 pb-8">
+      <main className="flex-1 px-5 pb-32">
         <h1 className="mt-2 text-2xl font-bold leading-snug text-fg">
           몇 가지만 알려주세요
         </h1>

@@ -52,7 +52,8 @@ function NewAppointmentForm() {
   const [etaM, setEtaM] = useState("");
   const [riskFactors, setRiskFactors] = useState<RiskFactor[]>([]);
   const [adjustMin, setAdjustMin] = useState(0);
-  const [prepOverrideStr, setPrepOverrideStr] = useState("");
+  const [prepOverrideH, setPrepOverrideH] = useState("");
+  const [prepOverrideM, setPrepOverrideM] = useState("");
   const [prefilled, setPrefilled] = useState(false);
 
   // 수정 모드: 기존 약속 데이터로 폼을 한 번 채운다
@@ -69,9 +70,14 @@ function NewAppointmentForm() {
     setEtaM(String(editing.mapEtaMin % 60 || ""));
     setRiskFactors(editing.riskFactors);
     setAdjustMin(editing.userAdjustMin);
-    setPrepOverrideStr(
-      editing.prepOverrideMin != null ? String(editing.prepOverrideMin) : ""
-    );
+    if (editing.prepOverrideMin != null) {
+      // 명시적으로 0으로 지정했을 수도 있으니 빈 문자열로 뭉개지 않는다
+      setPrepOverrideH(String(Math.floor(editing.prepOverrideMin / 60)));
+      setPrepOverrideM(String(editing.prepOverrideMin % 60));
+    } else {
+      setPrepOverrideH("");
+      setPrepOverrideM("");
+    }
     setPrefilled(true);
   }, [editing, prefilled]);
 
@@ -83,7 +89,10 @@ function NewAppointmentForm() {
   const mapEtaMin = etaTotal > 0 ? etaTotal : NaN;
 
   const prepOverrideMin =
-    prepOverrideStr.trim() === "" ? undefined : Number(prepOverrideStr);
+    prepOverrideH.trim() === "" && prepOverrideM.trim() === ""
+      ? undefined
+      : (parseInt(prepOverrideH || "0", 10) || 0) * 60 +
+        (parseInt(prepOverrideM || "0", 10) || 0);
 
   const toggleRisk = (r: RiskFactor) =>
     setRiskFactors((prev) =>
@@ -260,18 +269,33 @@ function NewAppointmentForm() {
           label="이 약속 준비 시간"
           hint="비워두면 평소 습관 기준으로 자동 계산해요. 출장지 등에서 바로 이동해 준비가 따로 필요 없으면 0으로 두세요. (선택)"
         >
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              inputMode="numeric"
-              value={prepOverrideStr}
-              onChange={(e) => setPrepOverrideStr(e.target.value)}
-              placeholder="자동"
-              min={0}
-              max={180}
-              className="flex-1"
-            />
-            <span className="text-sm text-muted">분</span>
+          <div className="flex gap-2">
+            <div className="flex flex-1 items-center gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={prepOverrideH}
+                onChange={(e) => setPrepOverrideH(e.target.value)}
+                placeholder="자동"
+                min={0}
+                max={12}
+                className="flex-1"
+              />
+              <span className="text-sm text-muted">시간</span>
+            </div>
+            <div className="flex flex-1 items-center gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={prepOverrideM}
+                onChange={(e) => setPrepOverrideM(e.target.value)}
+                placeholder="자동"
+                min={0}
+                max={59}
+                className="flex-1"
+              />
+              <span className="text-sm text-muted">분</span>
+            </div>
           </div>
         </Field>
       </main>
@@ -293,10 +317,7 @@ function NewAppointmentForm() {
               <span className="ml-1 text-base font-semibold text-fg">준비 시작</span>
             </p>
             <p className="mt-0.5 text-sm font-medium text-muted">
-              {formatClock(plan.departAt)} 출발 · {formatClock(plan.targetArriveAt)} 도착 목표
-            </p>
-            <p className="mt-0.5 text-xs text-muted/80">
-              약속 시각 {formatClock(appointmentAt)}보다 {plan.arriveEarlyMin}분 일찍이에요.
+              {formatClock(plan.departAt)} 출발 · {formatClock(plan.targetArriveAt)} 약속
             </p>
 
             {/* 시간 직접 조정 */}
