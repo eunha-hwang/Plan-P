@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+:root {
+  /* Light palette — white by default */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --fg: #191f28;
+  --muted: #8b95a1;
+  --border: #f2f3f5;
+  --brand: #3182f6;
+  --brand-fg: #ffffff;
+  --brand-weak: #eaf2fe;
+
+  /* Signal (traffic-light) colors */
+  --go: #12b886;
+  --go-weak: #e6f7f1;
+  --warn: #f08c00;
+  --warn-weak: #fff4e6;
+  --urgent: #f03e3e;
+  --urgent-weak: #fff0f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0d0f;
+    --surface: #16191d;
+    --surface-2: #1c2026;
+    --fg: #f2f4f6;
+    --muted: #8b95a1;
+    --border: #2a2f36;
+    --brand: #4c8dff;
+    --brand-fg: #ffffff;
+    --brand-weak: #16233a;
+
+    --go: #34d399;
+    --go-weak: #10231d;
+    --warn: #fbbf24;
+    --warn-weak: #2a2010;
+    --urgent: #ff6b6b;
+    --urgent-weak: #2a1414;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-weak: var(--brand-weak);
+  --color-go: var(--go);
+  --color-go-weak: var(--go-weak);
+  --color-warn: var(--warn);
+  --color-warn-weak: var(--warn-weak);
+  --color-urgent: var(--urgent);
+  --color-urgent-weak: var(--urgent-weak);
+
+  --font-sans: "Pretendard Variable", Pretendard, var(--font-geist-sans),
+    "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Tabular numerals for countdown */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Hide scrollbar (iPhone mockup screen on desktop) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Soft neutral elevation for white cards on white bg */
+.card-elev {
+  box-shadow:
+    0 1px 2px rgba(17, 24, 39, 0.03),
+    0 2px 6px rgba(17, 24, 39, 0.035);
+}
+@media (prefers-color-scheme: dark) {
+  .card-elev {
+    box-shadow: none;
+  }
+}
