@@ -65,6 +65,9 @@ export interface Appointment {
   id: string;
   title: string;
   destination: string;
+  /** 카카오맵에서 찍은 좌표 (검색으로 선택한 경우에만) */
+  destinationLat?: number;
+  destinationLng?: number;
   /** 약속 시각 (epoch ms) */
   appointmentAt: number;
   travelMode: TravelMode;

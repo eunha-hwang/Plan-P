@@ -369,7 +369,9 @@ export default function CountdownPage() {
         <Button variant="secondary" onClick={goHome}>
           홈으로
         </Button>
-        <Button onClick={() => markArrived(appt.id)}>Safe! 도착했어요</Button>
+        <Button onClick={() => markArrived(appt.id)}>
+          Safe! 도착했어요
+        </Button>
       </footer>
     </div>
   );

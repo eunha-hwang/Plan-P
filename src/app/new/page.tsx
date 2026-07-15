@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Button, Chip, Field, Header, Input, Segmented } from "@/components/ui";
+import { DestinationPicker } from "@/components/DestinationPicker";
 import { computePlan } from "@/lib/engine";
 import {
   formatClock,
@@ -44,6 +45,8 @@ function NewAppointmentForm() {
 
   const [title, setTitle] = useState("");
   const [destination, setDestination] = useState("");
+  const [destinationLat, setDestinationLat] = useState<number | undefined>(undefined);
+  const [destinationLng, setDestinationLng] = useState<number | undefined>(undefined);
   const [dateStr, setDateStr] = useState(() => defaultAppointmentInput().slice(0, 10));
   const [timeStr, setTimeStr] = useState(() => defaultAppointmentInput().slice(11, 16));
   const [importance, setImportance] = useState<Importance>("normal");
@@ -62,6 +65,8 @@ function NewAppointmentForm() {
     const local = msToLocalInput(editing.appointmentAt);
     setTitle(editing.title === "약속" ? "" : editing.title);
     setDestination(editing.destination);
+    setDestinationLat(editing.destinationLat);
+    setDestinationLng(editing.destinationLng);
     setDateStr(local.slice(0, 10));
     setTimeStr(local.slice(11, 16));
     setImportance(editing.importance);
@@ -135,6 +140,8 @@ function NewAppointmentForm() {
     const input = {
       title,
       destination,
+      destinationLat,
+      destinationLng,
       appointmentAt,
       travelMode,
       mapEtaMin,
@@ -166,11 +173,13 @@ function NewAppointmentForm() {
         </Field>
 
         <Field label="어디로 가요?">
-          <Input
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="도착지 (예: 강남역)"
-            maxLength={40}
+          <DestinationPicker
+            value={{ address: destination, lat: destinationLat, lng: destinationLng }}
+            onChange={(v) => {
+              setDestination(v.address);
+              setDestinationLat(v.lat);
+              setDestinationLng(v.lng);
+            }}
           />
         </Field>
 

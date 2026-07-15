@@ -14,6 +14,8 @@ import {
 type NewApptInput = {
   title: string;
   destination: string;
+  destinationLat?: number;
+  destinationLng?: number;
   appointmentAt: number;
   travelMode: PlanInput["travelMode"];
   mapEtaMin: number;
@@ -81,6 +83,8 @@ export const useStore = create<Store>()(
           id: makeId(),
           title: input.title.trim() || "약속",
           destination: input.destination.trim(),
+          destinationLat: input.destinationLat,
+          destinationLng: input.destinationLng,
           appointmentAt: input.appointmentAt,
           travelMode: input.travelMode,
           mapEtaMin: input.mapEtaMin,
@@ -119,6 +123,8 @@ export const useStore = create<Store>()(
           ...existing,
           title: input.title.trim() || "약속",
           destination: input.destination.trim(),
+          destinationLat: input.destinationLat,
+          destinationLng: input.destinationLng,
           appointmentAt: input.appointmentAt,
           travelMode: input.travelMode,
           mapEtaMin: input.mapEtaMin,
