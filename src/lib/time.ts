@@ -1,20 +1,22 @@
-/** epoch ms → "오후 2:30" 형태 */
-export function formatClock(ms: number): string {
-  return new Date(ms).toLocaleTimeString("ko-KR", {
+import { localeOf, type Language } from "./i18n";
+
+/** epoch ms → "오후 2:30" / "2:30 PM" 형태 */
+export function formatClock(ms: number, lang: Language = "ko"): string {
+  return new Date(ms).toLocaleTimeString(localeOf(lang), {
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-/** epoch ms → "7월 14일 (월) 오후 2:30" 형태 */
-export function formatDateTime(ms: number): string {
+/** epoch ms → "7월 14일 (월) 오후 2:30" / "Jul 14 (Mon) 2:30 PM" 형태 */
+export function formatDateTime(ms: number, lang: Language = "ko"): string {
   const d = new Date(ms);
-  const date = d.toLocaleDateString("ko-KR", {
+  const date = d.toLocaleDateString(localeOf(lang), {
     month: "long",
     day: "numeric",
     weekday: "short",
   });
-  return `${date} ${formatClock(ms)}`;
+  return `${date} ${formatClock(ms, lang)}`;
 }
 
 /** 남은 밀리초 → { h, m, s, total } */
@@ -27,9 +29,15 @@ export function breakdown(remainMs: number) {
   return { h, m, s, totalSec, totalMin: Math.floor(totalSec / 60) };
 }
 
-/** 분 단위를 "1시간 20분" / "25분"으로 */
-export function formatDuration(min: number): string {
+/** 분 단위를 "1시간 20분" / "1h 20m"으로 */
+export function formatDuration(min: number, lang: Language = "ko"): string {
   const m = Math.max(0, Math.round(min));
+  if (lang === "en") {
+    if (m < 60) return `${m}m`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+  }
   if (m < 60) return `${m}분`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
@@ -45,10 +53,10 @@ export function formatCountdown(remainMs: number): string {
   return `${pad2(m)}:${pad2(s)}`;
 }
 
-/** 카운트다운 표시용: 하루(24시간) 이상 남았으면 일단위("3일"), 아니면 h:mm:ss */
-export function formatRemain(remainMs: number): string {
+/** 카운트다운 표시용: 하루(24시간) 이상 남았으면 일단위("3일"/"3d"), 아니면 h:mm:ss */
+export function formatRemain(remainMs: number, lang: Language = "ko"): string {
   const days = Math.floor(Math.abs(remainMs) / (24 * 60 * 60 * 1000));
-  if (days >= 1) return `${days}일`;
+  if (days >= 1) return lang === "en" ? `${days}d` : `${days}일`;
   return formatCountdown(remainMs);
 }
 
@@ -81,9 +89,9 @@ export function dateKey(ms: number): string {
   return `${y}-${m}-${day}`;
 }
 
-/** epoch ms → "7월 14일 (월)" (요일 포함 짧은 날짜) */
-export function formatDateShort(ms: number): string {
-  return new Date(ms).toLocaleDateString("ko-KR", {
+/** epoch ms → "7월 14일 (월)" / "Jul 14 (Mon)" (요일 포함 짧은 날짜) */
+export function formatDateShort(ms: number, lang: Language = "ko"): string {
+  return new Date(ms).toLocaleDateString(localeOf(lang), {
     month: "long",
     day: "numeric",
     weekday: "short",

@@ -4,6 +4,7 @@ import "./globals.css";
 import { Hydrator } from "@/components/Hydrator";
 import { AppChrome } from "@/components/AppChrome";
 import { DeviceFrame } from "@/components/DeviceFrame";
+import { MixpanelProvider } from "@/components/MixpanelProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({
       <body className="min-h-full">
         {/* Mobile: full-screen app · Desktop: inside an iPhone mockup frame */}
         <Hydrator />
+        <MixpanelProvider />
         <DeviceFrame chrome={<AppChrome />}>{children}</DeviceFrame>
       </body>
     </html>

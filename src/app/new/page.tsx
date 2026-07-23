@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { Button, Chip, Field, Header, Input, Segmented } from "@/components/ui";
 import { DestinationPicker } from "@/components/DestinationPicker";
 import { computePlan } from "@/lib/engine";
+import { trackEvent } from "@/lib/mixpanel";
 import {
   formatClock,
   defaultAppointmentInput,
@@ -17,6 +18,7 @@ import {
   type RiskFactor,
   type TravelMode,
 } from "@/lib/types";
+import { IMPORTANCE_LABEL, MODE_LABEL, RISK_FACTOR_LABEL, t } from "@/lib/i18n";
 import { useStore } from "@/store/useStore";
 
 const ADJUST_MIN_LO = -30;
@@ -37,6 +39,7 @@ function NewAppointmentForm() {
   const editId = searchParams.get("id");
 
   const hydrated = useStore((s) => s.hydrated);
+  const lang = useStore((s) => s.language);
   const profile = useStore((s) => s.profile);
   const addAppointment = useStore((s) => s.addAppointment);
   const updateAppointment = useStore((s) => s.updateAppointment);
@@ -63,7 +66,7 @@ function NewAppointmentForm() {
   useEffect(() => {
     if (!editing || prefilled) return;
     const local = msToLocalInput(editing.appointmentAt);
-    setTitle(editing.title === "약속" ? "" : editing.title);
+    setTitle(editing.title === t(lang, "common.defaultTitle") ? "" : editing.title);
     setDestination(editing.destination);
     setDestinationLat(editing.destinationLat);
     setDestinationLng(editing.destinationLng);
@@ -153,6 +156,11 @@ function NewAppointmentForm() {
     const appt = editId
       ? updateAppointment(editId, input) ?? addAppointment(input)
       : addAppointment(input);
+    trackEvent("Appointment Save Click", {
+      mode: editId ? "edit" : "create",
+      travelMode,
+      importance,
+    });
     router.replace(`/countdown/${appt.id}`);
   };
 
@@ -160,19 +168,22 @@ function NewAppointmentForm() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header title={editId ? "약속 수정" : "새 약속"} onBack={() => router.back()} />
+      <Header
+        title={editId ? t(lang, "new.titleEdit") : t(lang, "new.titleNew")}
+        onBack={() => router.back()}
+      />
 
       <main className="flex-1 space-y-7 px-5 pb-44 pt-2">
-        <Field label="어떤 약속이에요?" hint="예: 지수랑 저녁, 카페 모임 (선택)">
+        <Field label={t(lang, "new.field.title.label")} hint={t(lang, "new.field.title.hint")}>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="약속 이름"
+            placeholder={t(lang, "new.field.title.placeholder")}
             maxLength={30}
           />
         </Field>
 
-        <Field label="어디로 가요?">
+        <Field label={t(lang, "new.field.destination.label")}>
           <DestinationPicker
             value={{ address: destination, lat: destinationLat, lng: destinationLng }}
             onChange={(v) => {
@@ -183,7 +194,7 @@ function NewAppointmentForm() {
           />
         </Field>
 
-        <Field label="언제 만나요?">
+        <Field label={t(lang, "new.field.datetime.label")}>
           <div className="flex gap-2">
             <Input
               type="date"
@@ -201,36 +212,33 @@ function NewAppointmentForm() {
         </Field>
 
         <Field
-          label="얼마나 중요한 약속이에요?"
-          hint="중요할수록 더 넉넉히, 더 일찍 준비하도록 잡아요."
+          label={t(lang, "new.field.importance.label")}
+          hint={t(lang, "new.field.importance.hint")}
         >
           <Segmented<Importance>
             value={importance}
             onChange={setImportance}
             options={[
-              { value: "normal", label: "보통" },
-              { value: "important", label: "중요" },
-              { value: "critical", label: "매우 중요" },
+              { value: "normal", label: IMPORTANCE_LABEL[lang].normal },
+              { value: "important", label: IMPORTANCE_LABEL[lang].important },
+              { value: "critical", label: IMPORTANCE_LABEL[lang].critical },
             ]}
           />
         </Field>
 
-        <Field label="어떻게 가요?">
+        <Field label={t(lang, "new.field.mode.label")}>
           <Segmented<TravelMode>
             value={travelMode}
             onChange={setTravelMode}
             options={[
-              { value: "walk", label: "도보" },
-              { value: "transit", label: "대중교통" },
-              { value: "car", label: "자차·택시" },
+              { value: "walk", label: MODE_LABEL[lang].walk },
+              { value: "transit", label: MODE_LABEL[lang].transit },
+              { value: "car", label: MODE_LABEL[lang].car },
             ]}
           />
         </Field>
 
-        <Field
-          label="지도 앱 예상 소요시간"
-          hint="네이버·카카오·구글 지도가 알려준 시간을 그대로 넣어주세요. 나머지는 Plan P가 알아서 넉넉히 잡아요."
-        >
+        <Field label={t(lang, "new.field.eta.label")} hint={t(lang, "new.field.eta.hint")}>
           <div className="flex gap-2">
             <div className="flex flex-1 items-center gap-2">
               <Input
@@ -243,7 +251,7 @@ function NewAppointmentForm() {
                 max={12}
                 className="flex-1"
               />
-              <span className="text-sm text-muted">시간</span>
+              <span className="text-sm text-muted">{t(lang, "new.hour")}</span>
             </div>
             <div className="flex flex-1 items-center gap-2">
               <Input
@@ -256,28 +264,22 @@ function NewAppointmentForm() {
                 max={59}
                 className="flex-1"
               />
-              <span className="text-sm text-muted">분</span>
+              <span className="text-sm text-muted">{t(lang, "new.min")}</span>
             </div>
           </div>
         </Field>
 
-        <Field
-          label="지각할 만한 게 있나요?"
-          hint="해당되는 걸 골라주세요. Plan P가 버퍼에 반영해요. (선택)"
-        >
+        <Field label={t(lang, "new.field.risk.label")} hint={t(lang, "new.field.risk.hint")}>
           <div className="flex flex-wrap gap-2">
             {RISK_FACTORS.map((r) => (
               <Chip key={r} active={riskFactors.includes(r)} onClick={() => toggleRisk(r)}>
-                {r}
+                {RISK_FACTOR_LABEL[lang][r]}
               </Chip>
             ))}
           </div>
         </Field>
 
-        <Field
-          label="이 약속 준비 시간"
-          hint="비워두면 평소 습관 기준으로 자동 계산해요. 출장지 등에서 바로 이동해 준비가 따로 필요 없으면 0으로 두세요. (선택)"
-        >
+        <Field label={t(lang, "new.field.prep.label")} hint={t(lang, "new.field.prep.hint")}>
           <div className="flex gap-2">
             <div className="flex flex-1 items-center gap-2">
               <Input
@@ -285,12 +287,12 @@ function NewAppointmentForm() {
                 inputMode="numeric"
                 value={prepOverrideH}
                 onChange={(e) => setPrepOverrideH(e.target.value)}
-                placeholder="자동"
+                placeholder={t(lang, "new.autoPlaceholder")}
                 min={0}
                 max={12}
                 className="flex-1"
               />
-              <span className="text-sm text-muted">시간</span>
+              <span className="text-sm text-muted">{t(lang, "new.hour")}</span>
             </div>
             <div className="flex flex-1 items-center gap-2">
               <Input
@@ -298,12 +300,12 @@ function NewAppointmentForm() {
                 inputMode="numeric"
                 value={prepOverrideM}
                 onChange={(e) => setPrepOverrideM(e.target.value)}
-                placeholder="자동"
+                placeholder={t(lang, "new.autoPlaceholder")}
                 min={0}
                 max={59}
                 className="flex-1"
               />
-              <span className="text-sm text-muted">분</span>
+              <span className="text-sm text-muted">{t(lang, "new.min")}</span>
             </div>
           </div>
         </Field>
@@ -313,20 +315,27 @@ function NewAppointmentForm() {
         {plan && Number.isFinite(appointmentAt) && (
           <div className="rounded-2xl border border-border bg-surface-2 px-5 py-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-muted">Plan P가 정한 시간</p>
+              <p className="text-xs font-semibold text-muted">{t(lang, "new.footer.plannedBy")}</p>
               {adjustMin !== 0 && (
                 <span className="text-xs font-semibold text-brand">
-                  {adjustMin > 0 ? `${adjustMin}분 더 일찍` : `${-adjustMin}분 더 늦게`}
+                  {adjustMin > 0
+                    ? t(lang, "new.footer.adjustEarlier", { min: adjustMin })
+                    : t(lang, "new.footer.adjustLater", { min: -adjustMin })}
                 </span>
               )}
             </div>
 
             <p className="mt-1 text-2xl font-bold text-brand">
-              {formatClock(plan.prepStartAt)}
-              <span className="ml-1 text-base font-semibold text-fg">준비 시작</span>
+              {formatClock(plan.prepStartAt, lang)}
+              <span className="ml-1 text-base font-semibold text-fg">
+                {t(lang, "new.footer.prepStart")}
+              </span>
             </p>
             <p className="mt-0.5 text-sm font-medium text-muted">
-              {formatClock(plan.departAt)} 출발 · {formatClock(plan.targetArriveAt)} 약속
+              {t(lang, "new.footer.departAndMeet", {
+                depart: formatClock(plan.departAt, lang),
+                meet: formatClock(plan.targetArriveAt, lang),
+              })}
             </p>
 
             {/* 시간 직접 조정 */}
@@ -336,14 +345,14 @@ function NewAppointmentForm() {
                 onClick={() => setAdjustMin((a) => clamp(a + 5, ADJUST_MIN_LO, ADJUST_MIN_HI))}
                 className="flex-1 rounded-xl border border-border bg-surface py-2 text-sm font-semibold text-fg transition hover:border-brand hover:text-brand"
               >
-                5분 더 일찍
+                {t(lang, "new.footer.btnEarlier")}
               </button>
               <button
                 type="button"
                 onClick={() => setAdjustMin((a) => clamp(a - 5, ADJUST_MIN_LO, ADJUST_MIN_HI))}
                 className="flex-1 rounded-xl border border-border bg-surface py-2 text-sm font-semibold text-fg transition hover:border-brand hover:text-brand"
               >
-                5분 더 늦게
+                {t(lang, "new.footer.btnLater")}
               </button>
               {adjustMin !== 0 && (
                 <button
@@ -351,14 +360,14 @@ function NewAppointmentForm() {
                   onClick={() => setAdjustMin(0)}
                   className="rounded-xl px-3 py-2 text-sm font-semibold text-muted transition hover:text-fg"
                 >
-                  초기화
+                  {t(lang, "new.footer.reset")}
                 </button>
               )}
             </div>
           </div>
         )}
         <Button onClick={save} disabled={!ready}>
-          {editId ? "수정 저장" : "이 시각으로 저장"}
+          {editId ? t(lang, "new.save.edit") : t(lang, "new.save.create")}
         </Button>
       </footer>
     </div>

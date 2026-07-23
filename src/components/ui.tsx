@@ -7,6 +7,8 @@ import type {
   InputHTMLAttributes,
   ReactNode,
 } from "react";
+import { t } from "@/lib/i18n";
+import { useStore } from "@/store/useStore";
 
 /* ---------------- Button ---------------- */
 
@@ -38,6 +40,30 @@ export function Button({
     >
       {children}
     </button>
+  );
+}
+
+/* ---------------- RichText (supports **bold** and \n line breaks) ---------------- */
+
+export function RichText({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <>
+      {lines.map((line, i) => (
+        <span key={i}>
+          {line.split("**").map((part, j) =>
+            j % 2 === 1 ? (
+              <b key={j} className="text-fg">
+                {part}
+              </b>
+            ) : (
+              part
+            )
+          )}
+          {i < lines.length - 1 && <br />}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -178,6 +204,7 @@ export function DeleteButton({
 }) {
   const [confirming, setConfirming] = useState(false);
   const dim = size === "sm" ? "h-8 w-8" : "h-10 w-10";
+  const lang = useStore((s) => s.language);
 
   if (confirming) {
     return (
@@ -190,7 +217,7 @@ export function DeleteButton({
           }}
           className="rounded-full bg-urgent px-2.5 py-1.5 text-xs font-bold text-white"
         >
-          삭제
+          {t(lang, "ui.delete")}
         </button>
         <button
           type="button"
@@ -200,7 +227,7 @@ export function DeleteButton({
           }}
           className="rounded-full px-2 py-1.5 text-xs font-semibold text-muted hover:text-fg"
         >
-          취소
+          {t(lang, "ui.cancel")}
         </button>
       </span>
     );
@@ -209,7 +236,7 @@ export function DeleteButton({
   return (
     <button
       type="button"
-      aria-label="삭제"
+      aria-label={t(lang, "ui.deleteAria")}
       onClick={(e) => {
         e.stopPropagation();
         setConfirming(true);
@@ -243,12 +270,13 @@ export function Header({
   onBack?: () => void;
   right?: ReactNode;
 }) {
+  const lang = useStore((s) => s.language);
   return (
     <header className="relative flex h-14 shrink-0 items-center justify-center px-4">
       {onBack && (
         <button
           onClick={onBack}
-          aria-label="뒤로"
+          aria-label={t(lang, "ui.backAria")}
           className="absolute left-2 flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-surface-2"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

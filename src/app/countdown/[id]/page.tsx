@@ -4,8 +4,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Button, DeleteButton, Header } from "@/components/ui";
 import { clsx } from "@/lib/clsx";
+import { trackEvent } from "@/lib/mixpanel";
 import { dateKey, formatClock, formatDuration, formatRemain } from "@/lib/time";
-import { MODE_LABEL, type Appointment } from "@/lib/types";
+import type { Appointment } from "@/lib/types";
+import { MODE_LABEL, t, type Language } from "@/lib/i18n";
 import { useNow } from "@/lib/useNow";
 import { useStore } from "@/store/useStore";
 
@@ -13,7 +15,8 @@ type Signal = "go" | "warn" | "urgent";
 
 function phaseOf(
   appt: Appointment,
-  now: number
+  now: number,
+  lang: Language
 ): {
   signal: Signal;
   label: string;
@@ -29,8 +32,14 @@ function phaseOf(
   if (toPrep > 0) {
     const min = toPrep / 60_000;
     const signal: Signal = min > 30 ? "go" : "warn";
-    const message = signal === "go" ? "아직 여유 있어요" : "곧 준비 시작이에요";
-    return { signal, label: "준비 시작까지", value: formatRemain(toPrep), message };
+    const message =
+      signal === "go" ? t(lang, "countdown.toPrep.relaxed") : t(lang, "countdown.toPrep.soon");
+    return {
+      signal,
+      label: t(lang, "countdown.label.toPrep"),
+      value: formatRemain(toPrep, lang),
+      message,
+    };
   }
 
   // 준비 구간: '출발까지'를 카운트다운해 촉박하게 → 낙관적 늑장 방지
@@ -39,26 +48,26 @@ function phaseOf(
     const signal: Signal = min > 10 ? "warn" : "urgent";
     return {
       signal,
-      label: "출발까지",
-      value: formatRemain(toDepart),
-      message: "지금 준비 시작하세요",
+      label: t(lang, "countdown.label.toDepart"),
+      value: formatRemain(toDepart, lang),
+      message: t(lang, "countdown.toDepart.message"),
     };
   }
 
   if (toAppt > 0) {
     return {
       signal: "urgent",
-      label: "약속까지",
-      value: formatRemain(toAppt),
-      message: "지금 나가세요!",
+      label: t(lang, "countdown.label.toAppt"),
+      value: formatRemain(toAppt, lang),
+      message: t(lang, "countdown.toAppt.message"),
     };
   }
 
   return {
     signal: "urgent",
-    label: "약속 시간에서",
-    value: `+${formatRemain(-toAppt)}`,
-    message: "지금 바로 나가세요",
+    label: t(lang, "countdown.label.overdue"),
+    value: `+${formatRemain(-toAppt, lang)}`,
+    message: t(lang, "countdown.overdue.message"),
   };
 }
 
@@ -130,26 +139,33 @@ function TimelineLeg({
   );
 }
 
-function Timetable({ appt, now }: { appt: Appointment; now: number }) {
+function Timetable({ appt, now, lang }: { appt: Appointment; now: number; lang: Language }) {
   const prepMin = Math.round((appt.departAt - appt.prepStartAt) / 60_000);
   const travelMin = Math.round((appt.targetArriveAt - appt.departAt) / 60_000);
   return (
     <div className="w-full rounded-2xl border border-[#f2f3f5] bg-white p-5 text-left shadow-sm">
-      <TimelineStop time={formatClock(appt.prepStartAt)} title="준비 시작" />
-      <TimelineLeg duration={formatDuration(prepMin)} chip="준비" passed={now >= appt.departAt} />
       <TimelineStop
-        time={formatClock(appt.departAt)}
-        title="출발"
-        sub={MODE_LABEL[appt.travelMode]}
+        time={formatClock(appt.prepStartAt, lang)}
+        title={t(lang, "countdown.timeline.prepStart")}
       />
       <TimelineLeg
-        duration={formatDuration(travelMin)}
-        chip={MODE_LABEL[appt.travelMode]}
+        duration={formatDuration(prepMin, lang)}
+        chip={t(lang, "countdown.timeline.prepChip")}
+        passed={now >= appt.departAt}
+      />
+      <TimelineStop
+        time={formatClock(appt.departAt, lang)}
+        title={t(lang, "countdown.timeline.depart")}
+        sub={MODE_LABEL[lang][appt.travelMode]}
+      />
+      <TimelineLeg
+        duration={formatDuration(travelMin, lang)}
+        chip={MODE_LABEL[lang][appt.travelMode]}
         passed={now >= appt.targetArriveAt}
       />
       <TimelineStop
-        time={formatClock(appt.targetArriveAt)}
-        title="약속"
+        time={formatClock(appt.targetArriveAt, lang)}
+        title={t(lang, "countdown.timeline.appt")}
         sub={appt.destination || undefined}
       />
     </div>
@@ -158,24 +174,38 @@ function Timetable({ appt, now }: { appt: Appointment; now: number }) {
 
 type NotifyPhase = "prep" | "depart" | "arrive";
 
-const NOTIFY_COPY: Record<NotifyPhase, (appt: Appointment) => { title: string; body: string }> = {
-  prep: (appt) => ({
-    title: "준비 시작할 시간이에요 ⏰",
-    body: `${appt.title} · ${formatClock(appt.departAt)} 출발`,
-  }),
-  depart: (appt) => ({
-    title: "지금 나가세요 🚨",
-    body: `${appt.title} · ${formatClock(appt.targetArriveAt)} 약속`,
-  }),
-  arrive: (appt) => ({
-    title: "도착했나요? 📍",
-    body: `${appt.title} · 도착하면 앱에서 눌러서 기록해요`,
-  }),
-};
+function notifyCopy(
+  phase: NotifyPhase,
+  appt: Appointment,
+  lang: Language
+): { title: string; body: string } {
+  if (phase === "prep") {
+    return {
+      title: t(lang, "countdown.notify.prep.title"),
+      body: t(lang, "countdown.notify.prep.body", {
+        title: appt.title,
+        depart: formatClock(appt.departAt, lang),
+      }),
+    };
+  }
+  if (phase === "depart") {
+    return {
+      title: t(lang, "countdown.notify.depart.title"),
+      body: t(lang, "countdown.notify.depart.body", {
+        title: appt.title,
+        arrive: formatClock(appt.targetArriveAt, lang),
+      }),
+    };
+  }
+  return {
+    title: t(lang, "countdown.notify.arrive.title"),
+    body: t(lang, "countdown.notify.arrive.body", { title: appt.title }),
+  };
+}
 
 /** 알림 자체는 앱(탭)이 살아있는 동안만 울릴 수 있음(브라우저 알림의 한계).
  *  requireInteraction으로 유저가 직접 닫기 전까지는 화면에 남아있게 한다. */
-function fireAlert(appt: Appointment, phase: NotifyPhase) {
+function fireAlert(appt: Appointment, phase: NotifyPhase, lang: Language) {
   if (typeof navigator !== "undefined" && "vibrate" in navigator) {
     navigator.vibrate([400, 150, 400, 150, 600]);
   }
@@ -186,7 +216,7 @@ function fireAlert(appt: Appointment, phase: NotifyPhase) {
   ) {
     return;
   }
-  const { title, body } = NOTIFY_COPY[phase](appt);
+  const { title, body } = notifyCopy(phase, appt, lang);
   const n = new Notification(title, {
     body,
     tag: `early5-${appt.id}-${phase}`,
@@ -198,13 +228,18 @@ function fireAlert(appt: Appointment, phase: NotifyPhase) {
   };
 }
 
-function ResultView({ appt }: { appt: Appointment }) {
+function ResultView({ appt, lang }: { appt: Appointment; lang: Language }) {
   const map = {
-    early: { emoji: "🎉", title: "일찍 도착했어요!", c: "text-go", bg: "bg-go-weak" },
-    ontime: { emoji: "👍", title: "정시 도착!", c: "text-brand", bg: "bg-brand-weak" },
+    early: { emoji: "🎉", title: t(lang, "countdown.result.early"), c: "text-go", bg: "bg-go-weak" },
+    ontime: {
+      emoji: "👍",
+      title: t(lang, "countdown.result.ontime"),
+      c: "text-brand",
+      bg: "bg-brand-weak",
+    },
     late: {
       emoji: "😵",
-      title: `${appt.lateByMin}분 지각했어요`,
+      title: t(lang, "countdown.result.late", { min: appt.lateByMin ?? 0 }),
       c: "text-urgent",
       bg: "bg-urgent-weak",
     },
@@ -217,15 +252,20 @@ function ResultView({ appt }: { appt: Appointment }) {
       </div>
       <h1 className={clsx("text-2xl font-bold", o.c)}>{o.title}</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
-        잘 저장했어요. 다음엔 더 정확하게 맞춰드릴게요.
-        <br />
-        쌓일수록 Plan P가 당신에게 맞춰져요.
+        {t(lang, "countdown.result.body")
+          .split("\n")
+          .map((line, i, arr) => (
+            <span key={i}>
+              {line}
+              {i < arr.length - 1 && <br />}
+            </span>
+          ))}
       </p>
     </div>
   );
 }
 
-function HeaderActions({ appt }: { appt: Appointment }) {
+function HeaderActions({ appt, lang }: { appt: Appointment; lang: Language }) {
   const router = useRouter();
   const removeAppointment = useStore((s) => s.removeAppointment);
 
@@ -233,7 +273,7 @@ function HeaderActions({ appt }: { appt: Appointment }) {
     <div className="flex items-center gap-1">
       <button
         type="button"
-        aria-label="약속 수정"
+        aria-label={t(lang, "countdown.editAria")}
         onClick={() => router.push(`/new?id=${appt.id}`)}
         className="flex h-10 w-10 items-center justify-center rounded-full text-fg hover:bg-surface-2"
       >
@@ -265,6 +305,7 @@ export default function CountdownPage() {
   const hydrated = useStore((s) => s.hydrated);
   const appt = useStore((s) => s.appointments.find((a) => a.id === id));
   const markArrived = useStore((s) => s.markArrived);
+  const lang = useStore((s) => s.language);
 
   const now = useNow(1000);
   const notifiedRef = useRef<Record<NotifyPhase, boolean> | null>(null);
@@ -285,28 +326,28 @@ export default function CountdownPage() {
     if (!appt || appt.status === "done") return;
     if (notifiedRef.current === null) {
       // 진입 시 이미 지난 단계는 알림하지 않음 (이미 인지한 상태로 간주)
-      const t = Date.now();
+      const nowMs = Date.now();
       notifiedRef.current = {
-        prep: t >= appt.prepStartAt,
-        depart: t >= appt.departAt,
-        arrive: t >= appt.targetArriveAt,
+        prep: nowMs >= appt.prepStartAt,
+        depart: nowMs >= appt.departAt,
+        arrive: nowMs >= appt.targetArriveAt,
       };
       return;
     }
     const n = notifiedRef.current;
     if (!n.prep && now >= appt.prepStartAt) {
       n.prep = true;
-      fireAlert(appt, "prep");
+      fireAlert(appt, "prep", lang);
     }
     if (!n.depart && now >= appt.departAt) {
       n.depart = true;
-      fireAlert(appt, "depart");
+      fireAlert(appt, "depart", lang);
     }
     if (!n.arrive && now >= appt.targetArriveAt) {
       n.arrive = true;
-      fireAlert(appt, "arrive");
+      fireAlert(appt, "arrive", lang);
     }
-  }, [now, appt]);
+  }, [now, appt, lang]);
 
   if (!hydrated) return null;
 
@@ -315,9 +356,9 @@ export default function CountdownPage() {
       <div className="flex min-h-dvh flex-col">
         <Header onBack={() => router.replace("/")} />
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <p className="text-muted">약속을 찾을 수 없어요.</p>
+          <p className="text-muted">{t(lang, "countdown.notFound")}</p>
           <Button variant="secondary" onClick={() => router.replace("/")}>
-            홈으로
+            {t(lang, "countdown.home")}
           </Button>
         </div>
       </div>
@@ -331,20 +372,20 @@ export default function CountdownPage() {
     return (
       <div className="flex min-h-dvh flex-col">
         <Header onBack={goHome} />
-        <ResultView appt={appt} />
+        <ResultView appt={appt} lang={lang} />
         <footer className="px-5 pb-8 pt-4">
-          <Button onClick={goHome}>홈으로</Button>
+          <Button onClick={goHome}>{t(lang, "countdown.home")}</Button>
         </footer>
       </div>
     );
   }
 
-  const { signal, label, value, message } = phaseOf(appt, now);
+  const { signal, label, value, message } = phaseOf(appt, now, lang);
   const style = SIGNAL_STYLE[signal];
 
   return (
     <div className="flex min-h-dvh flex-col bg-white">
-      <Header onBack={goHome} right={<HeaderActions appt={appt} />} />
+      <Header onBack={goHome} right={<HeaderActions appt={appt} lang={lang} />} />
 
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         {/* 신호등 상태 */}
@@ -361,16 +402,21 @@ export default function CountdownPage() {
 
         {/* 준비-출발-도착 타임테이블 */}
         <div className="mt-10 w-full">
-          <Timetable appt={appt} now={now} />
+          <Timetable appt={appt} now={now} lang={lang} />
         </div>
       </main>
 
       <footer className="space-y-2 px-5 pb-8 pt-4">
         <Button variant="secondary" onClick={goHome}>
-          홈으로
+          {t(lang, "countdown.home")}
         </Button>
-        <Button onClick={() => markArrived(appt.id)}>
-          Safe! 도착했어요
+        <Button
+          onClick={() => {
+            trackEvent("Arrived Click", { appointmentId: appt.id });
+            markArrived(appt.id);
+          }}
+        >
+          {t(lang, "countdown.safeBtn")}
         </Button>
       </footer>
     </div>

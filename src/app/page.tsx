@@ -4,7 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Calendar, type DayMark } from "@/components/Calendar";
 import { DeleteButton } from "@/components/ui";
-import { IMPORTANCE_LABEL, MODE_LABEL, type Appointment } from "@/lib/types";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import type { Appointment } from "@/lib/types";
+import { IMPORTANCE_LABEL, MODE_LABEL, t, type Language } from "@/lib/i18n";
 import { dateKey, formatClock, formatDateShort, formatDateTime } from "@/lib/time";
 import { useStore } from "@/store/useStore";
 
@@ -16,11 +18,14 @@ function Splash() {
   );
 }
 
-function OutcomeBadge({ appt }: { appt: Appointment }) {
+function OutcomeBadge({ appt, lang }: { appt: Appointment; lang: Language }) {
   const map = {
-    early: { t: "일찍 도착", c: "text-go bg-go-weak" },
-    ontime: { t: "정시 도착", c: "text-brand bg-brand-weak" },
-    late: { t: `${appt.lateByMin}분 지각`, c: "text-urgent bg-urgent-weak" },
+    early: { t: t(lang, "outcome.early"), c: "text-go bg-go-weak" },
+    ontime: { t: t(lang, "outcome.ontime"), c: "text-brand bg-brand-weak" },
+    late: {
+      t: t(lang, "outcome.late", { min: appt.lateByMin ?? 0 }),
+      c: "text-urgent bg-urgent-weak",
+    },
   } as const;
   const o = appt.outcome ? map[appt.outcome] : null;
   if (!o) return null;
@@ -47,11 +52,13 @@ function EditIcon() {
 
 function UpcomingCard({
   a,
+  lang,
   onClick,
   onEdit,
   onDelete,
 }: {
   a: Appointment;
+  lang: Language;
   onClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -76,18 +83,19 @@ function UpcomingCard({
                   a.importance === "critical" ? "text-urgent" : "text-warn"
                 }`}
               >
-                {IMPORTANCE_LABEL[a.importance]}
+                {IMPORTANCE_LABEL[lang][a.importance]}
               </span>
             )}
           </div>
           <p className="mt-0.5 truncate text-sm text-muted">
-            {a.destination || MODE_LABEL[a.travelMode]} · {formatDateTime(a.targetArriveAt)}
+            {a.destination || MODE_LABEL[lang][a.travelMode]} ·{" "}
+            {formatDateTime(a.targetArriveAt, lang)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            aria-label="약속 수정"
+            aria-label={t(lang, "home.editAria")}
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
@@ -103,17 +111,21 @@ function UpcomingCard({
         {a.prepStartAt < a.departAt ? (
           <>
             <p className="text-sm font-bold text-brand">
-              {formatClock(a.prepStartAt)} 준비 시작
+              {t(lang, "home.prepStartAt", { time: formatClock(a.prepStartAt, lang) })}
             </p>
             <p className="mt-0.5 text-xs font-medium text-muted">
-              {formatClock(a.departAt)} 출발 · {formatClock(a.targetArriveAt)} 약속
+              {t(lang, "home.departAndArrive", {
+                depart: formatClock(a.departAt, lang),
+                arrive: formatClock(a.targetArriveAt, lang),
+              })}
             </p>
           </>
         ) : (
           <p className="text-sm font-semibold text-fg">
-            {formatClock(a.departAt)} 출발
-            <span className="mx-1.5 text-muted">→</span>
-            {formatClock(a.targetArriveAt)} 약속
+            {t(lang, "home.departArrowArrive", {
+              depart: formatClock(a.departAt, lang),
+              arrive: formatClock(a.targetArriveAt, lang),
+            })}
           </p>
         )}
       </div>
@@ -121,27 +133,35 @@ function UpcomingCard({
   );
 }
 
-function PastRow({ a, onDelete }: { a: Appointment; onDelete: () => void }) {
+function PastRow({
+  a,
+  lang,
+  onDelete,
+}: {
+  a: Appointment;
+  lang: Language;
+  onDelete: () => void;
+}) {
   return (
     <div className="card-elev flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3.5">
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-fg">{a.title}</p>
-        <p className="truncate text-xs text-muted">{formatDateTime(a.appointmentAt)}</p>
+        <p className="truncate text-xs text-muted">{formatDateTime(a.appointmentAt, lang)}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <OutcomeBadge appt={a} />
+        <OutcomeBadge appt={a} lang={lang} />
         <DeleteButton size="sm" onDelete={onDelete} />
       </div>
     </div>
   );
 }
 
-function timeGreeting(): string {
+function timeGreeting(lang: Language): string {
   const h = new Date().getHours();
-  if (h < 6) return "늦은 밤이에요";
-  if (h < 12) return "좋은 아침이에요";
-  if (h < 18) return "좋은 오후예요";
-  return "좋은 저녁이에요";
+  if (h < 6) return t(lang, "home.greeting.night");
+  if (h < 12) return t(lang, "home.greeting.morning");
+  if (h < 18) return t(lang, "home.greeting.afternoon");
+  return t(lang, "home.greeting.evening");
 }
 
 export default function Home() {
@@ -159,6 +179,7 @@ function HomeContent() {
   const onboarded = useStore((s) => s.profile.onboarded);
   const appointments = useStore((s) => s.appointments);
   const removeAppointment = useStore((s) => s.removeAppointment);
+  const lang = useStore((s) => s.language);
   // 방금 저장한 약속의 날짜로 바로 이동해서 보여주기 위해 쿼리로 넘어온 날짜를 초기값으로 사용
   const [selectedDate, setSelectedDate] = useState<string | null>(
     () => searchParams.get("date")
@@ -202,13 +223,16 @@ function HomeContent() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="pb-2 pl-6 pr-5 pt-6">
-        <h1 className="text-xl font-bold text-fg">{timeGreeting()}</h1>
-        <p className="mt-1 text-sm text-muted">
-          {upcoming.length > 0
-            ? "다음 약속까지 여유 있게 준비해요"
-            : "약속을 추가하면 출발 시각을 챙겨드릴게요"}
-        </p>
+      <header className="flex items-start justify-between gap-3 pb-2 pl-6 pr-5 pt-6">
+        <div>
+          <h1 className="text-xl font-bold text-fg">{timeGreeting(lang)}</h1>
+          <p className="mt-1 text-sm text-muted">
+            {upcoming.length > 0
+              ? t(lang, "home.subtitle.hasUpcoming")
+              : t(lang, "home.subtitle.empty")}
+          </p>
+        </div>
+        <LanguageToggle className="mt-0.5 shrink-0" />
       </header>
 
       <main className="flex-1 px-5 pb-32">
@@ -217,9 +241,9 @@ function HomeContent() {
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-surface-2 text-3xl">
               ⏰
             </div>
-            <h2 className="text-lg font-bold text-fg">첫 약속을 등록해보세요</h2>
+            <h2 className="text-lg font-bold text-fg">{t(lang, "home.empty.title")}</h2>
             <p className="mx-auto mt-2 max-w-[260px] text-sm leading-relaxed text-muted">
-              약속만 넣으면 언제 나가야 할지 Plan P가 알아서 정해드려요.
+              {t(lang, "home.empty.body")}
             </p>
           </div>
         ) : (
@@ -230,28 +254,34 @@ function HomeContent() {
               <section>
                 <div className="mb-3 flex items-center justify-between px-1">
                   <h2 className="text-sm font-bold text-muted">
-                    {formatDateShort(new Date(selectedDate + "T00:00:00").getTime())}
+                    {formatDateShort(new Date(selectedDate + "T00:00:00").getTime(), lang)}
                   </h2>
                   <button
                     onClick={() => setSelectedDate(null)}
                     className="text-xs font-semibold text-brand"
                   >
-                    전체 보기
+                    {t(lang, "home.viewAll")}
                   </button>
                 </div>
                 {selectedList.length === 0 ? (
                   <p className="px-1 py-6 text-center text-sm text-muted">
-                    이 날은 등록된 약속이 없어요.
+                    {t(lang, "home.noAppointmentsThisDay")}
                   </p>
                 ) : (
                   <div className="space-y-3">
                     {selectedList.map((a) =>
                       a.status === "done" ? (
-                        <PastRow key={a.id} a={a} onDelete={() => removeAppointment(a.id)} />
+                        <PastRow
+                          key={a.id}
+                          a={a}
+                          lang={lang}
+                          onDelete={() => removeAppointment(a.id)}
+                        />
                       ) : (
                         <UpcomingCard
                           key={a.id}
                           a={a}
+                          lang={lang}
                           onClick={() => router.push(`/countdown/${a.id}`)}
                           onEdit={() => router.push(`/new?id=${a.id}`)}
                           onDelete={() => removeAppointment(a.id)}
@@ -266,13 +296,14 @@ function HomeContent() {
                 {upcoming.length > 0 && (
                   <section>
                     <h2 className="mb-3 px-1 text-sm font-bold text-muted">
-                      다가오는 약속
+                      {t(lang, "home.upcomingSection")}
                     </h2>
                     <div className="space-y-3">
                       {upcoming.map((a) => (
                         <UpcomingCard
                           key={a.id}
                           a={a}
+                          lang={lang}
                           onClick={() => router.push(`/countdown/${a.id}`)}
                           onEdit={() => router.push(`/new?id=${a.id}`)}
                           onDelete={() => removeAppointment(a.id)}

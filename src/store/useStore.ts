@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Appointment, UserProfile } from "@/lib/types";
+import { t, type Language } from "@/lib/i18n";
 import {
   DEFAULT_PROFILE,
   applyLearning,
@@ -30,10 +31,12 @@ type NewApptInput = {
 interface Store {
   profile: UserProfile;
   appointments: Appointment[];
+  language: Language;
   /** localStorage rehydration 완료 여부 (초기 깜빡임 방지) */
   hydrated: boolean;
 
   _setHydrated: () => void;
+  setLanguage: (language: Language) => void;
   completeOnboarding: (
     data: Pick<UserProfile, "lateReasons" | "lateFrequency" | "lateSeverity"> &
       Partial<Pick<UserProfile, "prepBaseMin">>
@@ -58,9 +61,11 @@ export const useStore = create<Store>()(
     (set, get) => ({
       profile: DEFAULT_PROFILE,
       appointments: [],
+      language: "ko",
       hydrated: false,
 
       _setHydrated: () => set({ hydrated: true }),
+      setLanguage: (language) => set({ language }),
 
       completeOnboarding: (data) =>
         set((s) => ({
@@ -68,7 +73,7 @@ export const useStore = create<Store>()(
         })),
 
       addAppointment: (input) => {
-        const { profile } = get();
+        const { profile, language } = get();
         const adjustMin = input.adjustMin ?? 0;
         const plan = computePlan(profile, {
           travelMode: input.travelMode,
@@ -81,7 +86,7 @@ export const useStore = create<Store>()(
         });
         const appt: Appointment = {
           id: makeId(),
-          title: input.title.trim() || "약속",
+          title: input.title.trim() || t(language, "common.defaultTitle"),
           destination: input.destination.trim(),
           destinationLat: input.destinationLat,
           destinationLng: input.destinationLng,
@@ -106,7 +111,7 @@ export const useStore = create<Store>()(
       },
 
       updateAppointment: (id, input) => {
-        const { profile, appointments } = get();
+        const { profile, appointments, language } = get();
         const existing = appointments.find((a) => a.id === id);
         if (!existing || existing.status === "done") return undefined;
         const adjustMin = input.adjustMin ?? 0;
@@ -121,7 +126,7 @@ export const useStore = create<Store>()(
         });
         const updated: Appointment = {
           ...existing,
-          title: input.title.trim() || "약속",
+          title: input.title.trim() || t(language, "common.defaultTitle"),
           destination: input.destination.trim(),
           destinationLat: input.destinationLat,
           destinationLng: input.destinationLng,
@@ -177,6 +182,7 @@ export const useStore = create<Store>()(
       partialize: (s) => ({
         profile: s.profile,
         appointments: s.appointments,
+        language: s.language,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

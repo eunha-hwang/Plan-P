@@ -1,20 +1,10 @@
 export type TravelMode = "walk" | "transit" | "car";
-export const MODE_LABEL: Record<TravelMode, string> = {
-  walk: "도보",
-  transit: "대중교통",
-  car: "자차·택시",
-};
 
 export type LateFrequency = "rare" | "sometimes" | "often";
 export type LateSeverity = "minor" | "moderate" | "severe";
 
 /** 약속 중요도 — 높을수록 버퍼·준비시간을 더 크게 잡는다 */
 export type Importance = "normal" | "important" | "critical";
-export const IMPORTANCE_LABEL: Record<Importance, string> = {
-  normal: "보통",
-  important: "중요",
-  critical: "매우 중요",
-};
 
 /** 이 약속에서 지각을 유발할 수 있는 요인 (등록 시 다중 선택) — AI가 버퍼에 반영 */
 export const RISK_FACTORS = [

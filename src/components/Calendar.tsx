@@ -3,8 +3,11 @@
 import { useMemo, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { dateKey } from "@/lib/time";
+import { localeOf, t } from "@/lib/i18n";
+import { useStore } from "@/store/useStore";
 
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const WEEKDAYS_KO = ["일", "월", "화", "수", "목", "금", "토"];
+const WEEKDAYS_EN = ["S", "M", "T", "W", "T", "F", "S"];
 
 /** 특정 날짜에 걸린 약속 상태 요약 (표시는 점 하나로 단순화) */
 export type DayMark = {
@@ -56,6 +59,8 @@ export function Calendar({
   selected: string | null;
   onSelect: (key: string | null) => void;
 }) {
+  const lang = useStore((s) => s.language);
+  const WEEKDAYS = lang === "ko" ? WEEKDAYS_KO : WEEKDAYS_EN;
   const today = new Date();
   const todayKey = dateKey(today.getTime());
   // 처음 열릴 때 선택된 날짜가 있으면(예: 방금 저장한 약속) 그 달로 바로 보여준다
@@ -98,20 +103,31 @@ export function Calendar({
     <div className="card-elev rounded-3xl border border-border bg-surface p-4">
       {/* 헤더: 왼쪽 화살표 · 가운데 제목(클릭) · 오른쪽 화살표 */}
       <div className="mb-3 flex items-center justify-between px-1">
-        <ArrowButton dir="left" label={picking ? "이전 해" : "이전 달"} onClick={goPrev} />
+        <ArrowButton
+          dir="left"
+          label={picking ? t(lang, "calendar.prevYear") : t(lang, "calendar.prevMonth")}
+          onClick={goPrev}
+        />
         <button
           type="button"
           onClick={togglePicker}
           className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold text-fg transition hover:bg-surface-2"
         >
           {picking
-            ? `${pickerYear}년`
-            : `${cursor.getFullYear()}년 ${cursor.getMonth() + 1}월`}
+            ? t(lang, "calendar.yearLabel", { year: pickerYear })
+            : new Date(cursor.getFullYear(), cursor.getMonth(), 1).toLocaleDateString(
+                localeOf(lang),
+                { year: "numeric", month: "long" }
+              )}
           <span className={clsx("text-muted transition", picking && "rotate-180")}>
             <IconChevron dir="down" />
           </span>
         </button>
-        <ArrowButton dir="right" label={picking ? "다음 해" : "다음 달"} onClick={goNext} />
+        <ArrowButton
+          dir="right"
+          label={picking ? t(lang, "calendar.nextYear") : t(lang, "calendar.nextMonth")}
+          onClick={goNext}
+        />
       </div>
 
       {picking ? (
@@ -139,7 +155,9 @@ export function Calendar({
                       : "text-fg hover:bg-surface-2"
                 )}
               >
-                {m + 1}월
+                {new Date(pickerYear, m, 1).toLocaleDateString(localeOf(lang), {
+                  month: "short",
+                })}
               </button>
             );
           })}
@@ -147,9 +165,9 @@ export function Calendar({
       ) : (
         /* 날짜 그리드 */
         <div className="grid grid-cols-7">
-          {WEEKDAYS.map((w) => (
+          {WEEKDAYS.map((w, i) => (
             <span
-              key={w}
+              key={i}
               className="pb-2 text-center text-[11px] font-medium text-muted"
             >
               {w}

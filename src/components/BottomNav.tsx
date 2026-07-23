@@ -3,6 +3,9 @@
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { clsx } from "@/lib/clsx";
+import { t } from "@/lib/i18n";
+import { trackEvent } from "@/lib/mixpanel";
+import { useStore } from "@/store/useStore";
 
 function TabButton({
   active,
@@ -32,6 +35,7 @@ function TabButton({
 export function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const lang = useStore((s) => s.language);
   const isHome = pathname === "/";
   const isStats = pathname.startsWith("/stats");
 
@@ -39,7 +43,7 @@ export function BottomNav() {
     <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-40 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:absolute md:pb-5">
       <div className="mx-auto max-w-[480px] px-6">
         <div className="pointer-events-auto flex items-center justify-around rounded-full border border-border bg-surface/95 px-5 py-1.5 shadow-[0_4px_16px_rgba(17,24,39,0.10)] backdrop-blur">
-          <TabButton active={isHome} label="홈" onClick={() => router.push("/")}>
+          <TabButton active={isHome} label={t(lang, "nav.home")} onClick={() => router.push("/")}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path
                 d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1v-8.5Z"
@@ -53,8 +57,11 @@ export function BottomNav() {
 
           {/* center: add appointment */}
           <button
-            onClick={() => router.push("/new")}
-            aria-label="약속 추가"
+            onClick={() => {
+              trackEvent("Add Appointment Click", { source: "bottom_nav" });
+              router.push("/new");
+            }}
+            aria-label={t(lang, "nav.addAria")}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-[#121212] text-white shadow-md transition active:scale-95"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -69,7 +76,7 @@ export function BottomNav() {
 
           <TabButton
             active={isStats}
-            label="히스토리"
+            label={t(lang, "nav.history")}
             onClick={() => router.push("/stats")}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

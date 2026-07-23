@@ -4,6 +4,8 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 import { Input } from "@/components/ui";
+import { t } from "@/lib/i18n";
+import { useStore } from "@/store/useStore";
 
 declare global {
   interface Window {
@@ -35,6 +37,7 @@ export function DestinationPicker({
   value: DestinationValue;
   onChange: (v: DestinationValue) => void;
 }) {
+  const lang = useStore((s) => s.language);
   const [query, setQuery] = useState(value.address);
   const [results, setResults] = useState<KakaoPlace[]>([]);
   const [sdkReady, setSdkReady] = useState(false);
@@ -56,6 +59,13 @@ export function DestinationPicker({
       window.kakao.maps.load(() => setSdkReady(true));
     }
   }, []);
+
+  // SDK가 늦게 로드되면 이미 debounce가 지나간 검색이 조용히 무시된 채 끝날 수 있으니,
+  // SDK 준비 완료 시점에 현재 입력값으로 한 번 더 검색해준다
+  useEffect(() => {
+    if (sdkReady) runSearch(query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sdkReady]);
 
   // 좌표가 있으면(검색 결과 선택) 지도에 핀을 찍는다
   useEffect(() => {
@@ -112,7 +122,7 @@ export function DestinationPicker({
       <Input
         value={query}
         onChange={(e) => handleInput(e.target.value)}
-        placeholder="도착지 검색 (예: 강남역)"
+        placeholder={t(lang, "destination.placeholder")}
         maxLength={40}
         autoComplete="off"
       />
@@ -145,7 +155,7 @@ export function DestinationPicker({
 
       {!KAKAO_JS_KEY && (
         <p className="mt-1.5 text-xs text-urgent">
-          지도 검색이 아직 설정 안 됐어요. .env.local의 NEXT_PUBLIC_KAKAO_JS_KEY를 채워주세요.
+          {t(lang, "destination.kakaoMissing")}
         </p>
       )}
     </div>

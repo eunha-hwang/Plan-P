@@ -2,9 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button, Field, Header, Segmented } from "@/components/ui";
+import { Button, Field, Header, RichText, Segmented } from "@/components/ui";
+import { LanguageToggle } from "@/components/LanguageToggle";
 import { clsx } from "@/lib/clsx";
 import { LATE_REASONS, type LateFrequency, type LateSeverity } from "@/lib/types";
+import { LATE_REASON_LABEL, t, type Language } from "@/lib/i18n";
+import { trackEvent } from "@/lib/mixpanel";
 import { useStore } from "@/store/useStore";
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -31,9 +34,11 @@ function ChevronIcon({ open }: { open: boolean }) {
 function ReasonPicker({
   selected,
   onChange,
+  lang,
 }: {
   selected: string[];
   onChange: (next: string[]) => void;
+  lang: Language;
 }) {
   const [open, setOpen] = useState(false);
   const [customText, setCustomText] = useState("");
@@ -54,12 +59,18 @@ function ReasonPicker({
     (r) => !(LATE_REASONS as readonly string[]).includes(r)
   );
 
+  const label = (r: string) =>
+    (LATE_REASON_LABEL[lang] as Record<string, string>)[r] ?? r;
+
   const summary =
     selected.length === 0
-      ? "선택 안 함"
+      ? t(lang, "onboarding.reason.none")
       : selected.length <= 2
-        ? selected.join(", ")
-        : `${selected.slice(0, 2).join(", ")} 외 ${selected.length - 2}개`;
+        ? selected.map(label).join(", ")
+        : t(lang, "onboarding.reason.summary", {
+            items: selected.slice(0, 2).map(label).join(", "),
+            n: selected.length - 2,
+          });
 
   return (
     <div>
@@ -90,7 +101,7 @@ function ReasonPicker({
                   onChange={() => toggle(r)}
                   className="h-4 w-4 accent-brand"
                 />
-                <span className="text-sm text-fg">{r}</span>
+                <span className="text-sm text-fg">{label(r)}</span>
               </label>
             ))}
             {customSelected.map((r) => (
@@ -118,7 +129,7 @@ function ReasonPicker({
                   addCustom();
                 }
               }}
-              placeholder="직접 입력 (예: 늑장 부리기)"
+              placeholder={t(lang, "onboarding.reason.customPlaceholder")}
               className="h-10 flex-1 rounded-xl border border-border bg-surface-2 px-3 text-sm text-fg outline-none placeholder:text-muted focus:border-brand"
             />
             <button
@@ -127,7 +138,7 @@ function ReasonPicker({
               className="rounded-xl bg-brand px-3 text-sm font-semibold text-brand-fg disabled:opacity-40"
               disabled={!customText.trim()}
             >
-              추가
+              {t(lang, "onboarding.reason.add")}
             </button>
           </div>
         </div>
@@ -139,6 +150,7 @@ function ReasonPicker({
 export default function OnboardingPage() {
   const router = useRouter();
   const completeOnboarding = useStore((s) => s.completeOnboarding);
+  const lang = useStore((s) => s.language);
 
   const [reasons, setReasons] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<LateFrequency | null>(null);
@@ -149,6 +161,10 @@ export default function OnboardingPage() {
 
   const submit = () => {
     if (!canSubmit) return;
+    trackEvent("Onboarding Complete Click", {
+      lateFrequency: frequency,
+      lateSeverity: severity,
+    });
     completeOnboarding({
       lateReasons: reasons,
       lateFrequency: frequency,
@@ -160,57 +176,94 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <Header />
+      <Header right={<LanguageToggle />} />
       <main className="flex-1 px-5 pb-32">
         <h1 className="mt-2 text-2xl font-bold leading-snug text-fg">
-          몇 가지만 알려주세요
+          {t(lang, "onboarding.title")}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          출발 시각은 <b className="text-fg">Plan P가 알아서</b> 계산해요.
-          <br />
-          이제 지각 걱정은 넣어두세요.
+          <RichText text={t(lang, "onboarding.subtitle")} />
         </p>
 
         <div className="mt-8 space-y-8">
-          <Field label="평소 왜 늦나요?" hint="해당되는 걸 모두 골라주세요 (선택)">
-            <ReasonPicker selected={reasons} onChange={setReasons} />
+          <Field
+            label={t(lang, "onboarding.field.reason.label")}
+            hint={t(lang, "onboarding.field.reason.hint")}
+          >
+            <ReasonPicker selected={reasons} onChange={setReasons} lang={lang} />
           </Field>
 
-          <Field label="얼마나 자주 늦나요?">
+          <Field label={t(lang, "onboarding.field.frequency.label")}>
             <Segmented<LateFrequency>
               value={frequency}
               onChange={setFrequency}
               options={[
-                { value: "rare", label: "가끔", sub: "거의 안 늦어요" },
-                { value: "sometimes", label: "종종", sub: "가끔 늦어요" },
-                { value: "often", label: "자주", sub: "늘 아슬아슬" },
+                {
+                  value: "rare",
+                  label: t(lang, "onboarding.frequency.rare.label"),
+                  sub: t(lang, "onboarding.frequency.rare.sub"),
+                },
+                {
+                  value: "sometimes",
+                  label: t(lang, "onboarding.frequency.sometimes.label"),
+                  sub: t(lang, "onboarding.frequency.sometimes.sub"),
+                },
+                {
+                  value: "often",
+                  label: t(lang, "onboarding.frequency.often.label"),
+                  sub: t(lang, "onboarding.frequency.often.sub"),
+                },
               ]}
             />
           </Field>
 
-          <Field label="늦으면 보통 얼마나 늦나요?">
+          <Field label={t(lang, "onboarding.field.severity.label")}>
             <Segmented<LateSeverity>
               value={severity}
               onChange={setSeverity}
               options={[
-                { value: "minor", label: "5분", sub: "살짝" },
-                { value: "moderate", label: "10~15분", sub: "적당히" },
-                { value: "severe", label: "20분+", sub: "많이" },
+                {
+                  value: "minor",
+                  label: t(lang, "onboarding.severity.minor.label"),
+                  sub: t(lang, "onboarding.severity.minor.sub"),
+                },
+                {
+                  value: "moderate",
+                  label: t(lang, "onboarding.severity.moderate.label"),
+                  sub: t(lang, "onboarding.severity.moderate.sub"),
+                },
+                {
+                  value: "severe",
+                  label: t(lang, "onboarding.severity.severe.label"),
+                  sub: t(lang, "onboarding.severity.severe.sub"),
+                },
               ]}
             />
           </Field>
 
           <Field
-            label="평소 준비하는 데 보통 얼마나 걸려요?"
-            hint="씻고 옷 입고 챙기는 시간 다 합쳐서 (선택)"
+            label={t(lang, "onboarding.field.prep.label")}
+            hint={t(lang, "onboarding.field.prep.hint")}
           >
             <Segmented<"15" | "25" | "40">
               value={prepBaseMin}
               onChange={setPrepBaseMin}
               options={[
-                { value: "15", label: "15분", sub: "빠른 편" },
-                { value: "25", label: "25분", sub: "보통" },
-                { value: "40", label: "40분+", sub: "느긋한 편" },
+                {
+                  value: "15",
+                  label: t(lang, "onboarding.prep.15.label"),
+                  sub: t(lang, "onboarding.prep.15.sub"),
+                },
+                {
+                  value: "25",
+                  label: t(lang, "onboarding.prep.25.label"),
+                  sub: t(lang, "onboarding.prep.25.sub"),
+                },
+                {
+                  value: "40",
+                  label: t(lang, "onboarding.prep.40.label"),
+                  sub: t(lang, "onboarding.prep.40.sub"),
+                },
               ]}
             />
           </Field>
@@ -219,7 +272,7 @@ export default function OnboardingPage() {
 
       <footer className="sticky bottom-0 bg-gradient-to-t from-bg via-bg to-transparent px-5 pb-6 pt-4">
         <Button onClick={submit} disabled={!canSubmit}>
-          시작하기
+          {t(lang, "onboarding.start")}
         </Button>
       </footer>
     </div>
